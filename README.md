@@ -14,12 +14,12 @@ Solar - Battery powered ESP32+BME280 weather station MQTT integrated HA.
 ![HA WS](/pictures/WS_circuit_image.png)
 # ESPHOME code
 
-Operating model: 
+## Operating model: 
  - 5-minute deep-sleep cycles
  - measurement in every cycle
  - sending measurement data to the HA every 3 cycles via MQTT protocol
 
-Base entities:
+## Base entities:
 BMP280:
  - Outside temperature
  - Absolute humidity
@@ -45,8 +45,8 @@ BMP280:
 ```
 
 
-Calculated entities:</br >
-Sea level air pressure:
+## Calculated entities:</br >
+### Sea level air pressure:
 m = local height value ( View with GPS )
 ```
  - platform: template
@@ -70,7 +70,7 @@ m = local height value ( View with GPS )
       return p0;
 ```
 
-Dew point:
+### Dew point:
 ```
 - platform: template
     name: "Harmatpont"
@@ -91,7 +91,7 @@ Dew point:
       float gamma = logf(rh / 100.0f) + (a * t) / (b + t);
       return (b * gamma) / (a - gamma);
 ```
-Pressure trend: </br >
+### Pressure trend: </br >
 Air pressure change over a 3-hour average
 ```
  - platform: template
@@ -119,7 +119,7 @@ Air pressure change over a 3-hour average
       float dp = id(p_sl_ema) - id(p_sl_slow);
       return dp * 6.0f;
 ```
-Weather type: </br >
+### Weather type: </br >
 Weather change calculated based on pressure trend
 - Rapidly rising (improving)
 - Rising (improving)
@@ -145,7 +145,7 @@ text_sensor:
         return {"Stabil"};
 ```
 
-Warning: combination of pressure drop + "moist" air </br >
+### Warning: combination of pressure drop + "moist" air </br >
  - High: rapid pressure drop + humid air (chance of showers/storms)
  - Medium: pressure drop + humid air (chance of precipitation)
  - Watch out: rapid pressure drop (front may be approaching)
@@ -182,7 +182,7 @@ Warning: combination of pressure drop + "moist" air </br >
       if (humid_air)              return {"Nyirkos: köd/pára esély (kis spread / magas RH)"};
       return {"Nincs"};
 ```
-Last seen counter</br >
+### Last seen counter</br >
 Heartbeat, increases by 1 in each deep-sleep cycle, and the HA side always increases by 3 (sleep-sleep-connect)</br > 
 ( simple diagnostics, "Have it, it works, it wasn't taken away :)" )
 ```
