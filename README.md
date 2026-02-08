@@ -25,7 +25,8 @@ BMP280:
  - Absolute humidity
  - Station air pressure value
  - Dew point
- - Battery voltage:
+ - Battery voltage: </br >
+   To calculate the multiplier value, you need to measure the resistance between the ADC and the + or - point of the element.
 '''
 multiply: 1.7  # (8.7k+12,3k)/8,7k
 '''
