@@ -45,6 +45,32 @@ BMP280:
 ```
 
 
+Calculated entities:
+Sea level air pressure:
+m = local height value ( View with GPS )
+```
+ - platform: template
+    name: "Légnyomás (tengerszintre korrigált)"
+    id: p_sl
+    unit_of_measurement: "hPa"
+    icon: "mdi:gauge"
+    accuracy_decimals: 1
+    retain: true
+    update_interval: never
+    lambda: |-
+      float p = id(bme_p).state;   // hPa
+      float t = id(bme_t).state;   // °C
+      const float h = 268.0f;      // m 
+      if (isnan(p) || isnan(t)) return NAN;
+
+      float p0 = p * powf(
+        1.0f - (0.0065f * h) / (t + 0.0065f * h + 273.15f),
+        -5.257f
+      );
+      return p0;
+```
+
+
 
 # HA Card<br />
 U need for this card:
