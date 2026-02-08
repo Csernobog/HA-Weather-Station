@@ -4,7 +4,7 @@ Solar - Battery powered ESP32+BME280 weather station MQTT integrated HA.
 3D Case: https://www.thingiverse.com/thing:2282869
 
 
-#HA Card
+#HA Card<br />
 U need for this card:
  - card-mod / http://homeassistant.local:8123/hacs/repository/190927524
  - expander-card / http://homeassistant.local:8123/hacs/repository/677140532
