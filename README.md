@@ -10,10 +10,10 @@ U need for this card:
  - expander-card / http://homeassistant.local:8123/hacs/repository/677140532
  - button-card / http://homeassistant.local:8123/hacs/repository/146194325
   
- #Card close:<br />
+ Card close:<br />
  ![HA WS card close](/pictures/ws_card_close.jpg)
 
- #Card open:<br />
+ Card open:<br />
  ![HA WS card close](/pictures/ws_card_open.jpg)
 
 
