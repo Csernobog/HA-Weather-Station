@@ -91,9 +91,97 @@ Dew point:
       float gamma = logf(rh / 100.0f) + (a * t) / (b + t);
       return (b * gamma) / (a - gamma);
 ```
+Pressure trend: </br >
+Air pressure change over a 3-hour average
+```
+ - platform: template
+    name: "Nyomástrend (hPa/3h)"
+    id: p_trend_3h
+    unit_of_measurement: "hPa/3h"
+    icon: "mdi:chart-line"
+    accuracy_decimals: 1
+    retain: true
+    update_interval: never
+    lambda: |-
+      float p = id(p_sl).state;
+      if (isnan(p)) return NAN;
 
+      // 15 percenként frissül valójában (küldős ciklus)
+      // gyors EMA: kb. "rövid táv"
+      if (isnan(id(p_sl_ema))) id(p_sl_ema) = p;
+      id(p_sl_ema) = 0.25f * p + 0.75f * id(p_sl_ema);
 
+      // lassú EMA: kb. "hosszabb táv"
+      if (isnan(id(p_sl_slow))) id(p_sl_slow) = id(p_sl_ema);
+      id(p_sl_slow) = 0.05f * id(p_sl_ema) + 0.95f * id(p_sl_slow);
 
+      // különbség -> trend jelleg; skálázás 3 órára (heurisztika)
+      float dp = id(p_sl_ema) - id(p_sl_slow);
+      return dp * 6.0f;
+```
+Weather type: </br >
+Weather change calculated based on pressure trend
+- Rapidly rising (improving)
+- Rising (improving)
+- Stabile
+- Decreasing (deteriorating)
+- Decreasing rapidly (front/storm chance)
+
+```
+text_sensor:
+  - platform: template
+      name: "Időjárás jelleg (nyomás)"
+      id: wx_trend
+      icon: "mdi:weather-cloudy-clock"
+      update_interval: never
+      lambda: |-
+        float tr = id(p_trend_3h).state;
+        if (isnan(tr)) return {"n/a"};
+  
+        if (tr > 3.0f) return {"Gyorsan emelkedik (javuló)"};
+        if (tr > 1.0f) return {"Emelkedik (javuló)"};
+        if (tr < -3.0f) return {"Gyorsan csökken (front/vihar esély)"};
+        if (tr < -1.0f) return {"Csökken (romló)"};
+        return {"Stabil"};
+```
+
+Warning: combination of pressure drop + "moist" air </br >
+ - High: rapid pressure drop + humid air (chance of showers/storms)
+ - Medium: pressure drop + humid air (chance of precipitation)
+ - Watch out: rapid pressure drop (front may be approaching)
+ - Humid: fog/humidity chance (small spread / high RH)
+ - No Alert
+   
+```
+  # Figyelmeztetés: nyomásesés + "nyirkos" levegő kombinációja
+  - platform: template
+    name: "Figyelmeztetés"
+    id: wx_alert
+    icon: "mdi:alert-outline"
+    update_interval: never
+    lambda: |-
+      float tr = id(p_trend_3h).state;   // hPa/3h jelleg
+      float t  = id(bme_t).state;
+      float dp = id(dewpoint).state;
+      float rh = id(bme_rh).state;
+
+      if (isnan(tr) || isnan(t) || isnan(dp) || isnan(rh)) return {"n/a"};
+
+      float spread = t - dp; // dewpoint depression
+
+      // Nedvességi jelző:
+      bool humid_air = (rh >= 85.0f) || (spread <= 2.0f);
+
+      // Erős romlás jelző:
+      bool fast_drop = (tr <= -3.0f);
+      bool drop      = (tr <= -1.5f);
+
+      if (fast_drop && humid_air) return {"Magas: gyors nyomásesés + nedves levegő (zápor/vihar esély)"};
+      if (drop && humid_air)      return {"Közepes: nyomásesés + nedves levegő (csapadék esély)"};
+      if (fast_drop)              return {"Figyeld: gyors nyomásesés (front közeleghet)"};
+      if (humid_air)              return {"Nyirkos: köd/pára esély (kis spread / magas RH)"};
+      return {"Nincs"};
+```
 # HA Card<br />
 U need for this card:
  - card-mod / http://homeassistant.local:8123/hacs/repository/190927524
