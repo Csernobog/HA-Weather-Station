@@ -182,6 +182,20 @@ Warning: combination of pressure drop + "moist" air </br >
       if (humid_air)              return {"Nyirkos: köd/pára esély (kis spread / magas RH)"};
       return {"Nincs"};
 ```
+Last seen counter</br >
+Heartbeat, increases by 1 in each deep-sleep cycle, and the HA side always increases by 3 (sleep-sleep-connect)</br > 
+( simple diagnostics, "Have it, it works, it wasn't taken away :)" )
+```
+- platform: template
+    name: "Last seen counter"
+    id: last_seen_counter
+    unit_of_measurement: "boot"
+    accuracy_decimals: 0
+    retain: true
+    update_interval: never
+    lambda: |-
+      return (float) id(boot_count);
+```
 # HA Card<br />
 U need for this card:
  - card-mod / http://homeassistant.local:8123/hacs/repository/190927524
