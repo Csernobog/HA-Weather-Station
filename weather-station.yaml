@@ -1,0 +1,359 @@
+# Weather Station
+# XIAO ESP32 C3 mini
+# BME 280 i2c Temp, Humi, Pressure sensor
+# solar charger + Panel 5V 250mA + 18650 Battery
+# battery monitor (Cell pover + capacity)
+# THIS BOARD PINOUT (verified) https://mischianti.org/esp32-c3-super-mini-high-resolution-pinout-datasheet-and-specs/
+# I2C: SDA=GPIO8, SCL=GPIO9
+# ADC (battery): GPIO3  
+
+esphome:
+  name: "weather-station"
+  friendly_name: Weather Station
+  min_version: 2025.11.0
+  name_add_mac_suffix: false
+  project:
+    name: "BZS.weateher_station"
+    version: "1.0.0"
+  on_boot:
+    - priority: 800
+      then:
+        - component.update: batt_v
+        - delay: 250ms
+        - component.update: batt_pct 
+    - priority: 600
+      then:
+        - lambda: |-
+            id(boot_mod3) = (id(boot_mod3) + 1) % 3;
+            id(boot_count) += 1;
+
+        # Ha nem küldünk (1. és 2. ciklus): Wi-Fi off azonnal
+        - if:
+            condition:
+              lambda: 'return (id(boot_mod3) != 0) && (!id(ota_mode));'
+            then:
+                - wifi.disable
+esp32:
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+# nem kell
+
+# Allow Over-The-Air updates
+# MQTT bekapcsolható hogy ne aludjon el az OTA miatt
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+globals:
+  - id: boot_mod3
+    type: int
+    restore_value: true
+    initial_value: '0'
+# boot számláló, folyamatosan nő +1, minden bejelentkezéskor 3 ugrik a HA-ban
+  - id: boot_count
+    type: int
+    restore_value: true
+    initial_value: '0'
+  
+# ota be/ki kapcsolás jelző
+  - id: ota_mode
+    type: bool
+    restore_value: true
+    initial_value: 'false'
+# Trend segédváltozók (sea-level pressure-n dolgozunk)
+  - id: p_sl_ema
+    type: float
+    restore_value: true
+    initial_value: 'NAN'
+
+  - id: p_sl_slow
+    type: float
+    restore_value: true
+    initial_value: 'NAN'
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+  output_power: 8.5dB
+  manual_ip:
+    static_ip: 192.168.0.218
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+    dns1: 192.168.0.1
+    dns2: 8.8.8.8
+
+mqtt:
+  broker: !secret mqtt_host
+  username: !secret mqtt_user
+  password: !secret mqtt_pass
+  discovery: true
+  discovery_retain: true
+
+  topic_prefix: weather-station
+
+  birth_message: 
+  will_message: 
+  on_message:
+    - topic: weather-station/ota_mode
+      payload: "ON"
+      then:
+        - lambda: |-
+            id(ota_mode) = true;
+        - wifi.enable         
+        - logger.log: "OTA MODE: ON (no deep sleep)"
+    - topic: weather-station/ota_mode
+      payload: "OFF"
+      then:
+        - lambda: |-
+            id(ota_mode) = false;
+        - logger.log: "OTA MODE: OFF (normal deep sleep)"
+
+deep_sleep:
+  id: xiao_deep_sleep
+  sleep_duration: 300s
+
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+ 
+binary_sensor:
+  - platform: template
+    name: "Weather Station online"
+    device_class: connectivity
+    lambda: |-
+      if (id(ws_status).state == "online") return true;
+      return false;
+
+sensor:
+# Akku feszültség (CSAK a küldős ciklusban frissítjük)
+  - platform: adc
+    pin: GPIO2
+    name: "Akkufeszültség"
+    id: batt_v
+    attenuation: 11db
+    update_interval: never # csak akkor frissiti, ha meghivjuk Update-el
+    retain: true
+    filters:
+      - multiply: 1.7  # (8.7k+12,3k)/8,7k
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 5
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+
+# Akku százalék (egyszerű közelítés Li-ionhoz)
+# 4.20V ~ 100%, 3.30V ~ 0% (terhelés alatt ez csalhat, de telemetriának jó)
+  - platform: template
+    name: "Akkuszint"
+    id: batt_pct
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never # csak akkor frissiti, ha meghivjuk Update-el
+    retain: true
+    lambda: |-
+      float v = id(batt_v).state;
+      if (isnan(v)) return NAN;
+      float pct = (v - 3.30f) / (4.20f - 3.30f) * 100.0f;
+      if (pct < 0.0f) pct = 0.0f;
+      if (pct > 100.0f) pct = 100.0f;
+      return pct;
+
+  # BME280: egyszer mérünk a küldős ciklusban (update_interval: never)
+  - platform: bme280_i2c
+    address: 0x76
+    update_interval: never
+    temperature:
+      name: "Külső hőmérséklet"
+      id: bme_t
+      retain: true
+    pressure:
+      name: "Légnyomás (állomási)"
+      id: bme_p
+      retain: true
+    humidity:
+      name: "Relatív páratartalom"
+      id: bme_rh
+      retain: true
+    id: bme280_comp
+
+  # Tengerszintre korrigált nyomás (QNH) – 268m <- mérőhely THM
+  - platform: template
+    name: "Légnyomás (tengerszintre korrigált)"
+    id: p_sl
+    unit_of_measurement: "hPa"
+    icon: "mdi:gauge"
+    accuracy_decimals: 1
+    retain: true
+    update_interval: never
+    lambda: |-
+      float p = id(bme_p).state;   // hPa
+      float t = id(bme_t).state;   // °C
+      const float h = 268.0f;      // m
+      if (isnan(p) || isnan(t)) return NAN;
+
+      float p0 = p * powf(
+        1.0f - (0.0065f * h) / (t + 0.0065f * h + 273.15f),
+        -5.257f
+      );
+      return p0;
+
+  - platform: absolute_humidity
+    name: "Abszolút páratartalom"
+    temperature: bme_t
+    humidity: bme_rh
+    retain: true
+
+  - platform: template
+    name: "Harmatpont"
+    id: dewpoint
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer-alert"
+    accuracy_decimals: 1
+    retain: true
+    update_interval: never
+    lambda: |-
+      float t = id(bme_t).state;
+      float rh = id(bme_rh).state;
+      if (isnan(t) || isnan(rh) || rh <= 0.0f) return NAN;
+
+      // Magnus formula
+      const float a = 17.67f;
+      const float b = 243.5f;
+      float gamma = logf(rh / 100.0f) + (a * t) / (b + t);
+      return (b * gamma) / (a - gamma);
+
+  # Nyomástrend (deep-sleep kompatibilis közelítés)
+  # A kimenet kb. "hPa/3h" jellegű szám, jelzésre jó.
+  - platform: template
+    name: "Nyomástrend (hPa/3h)"
+    id: p_trend_3h
+    unit_of_measurement: "hPa/3h"
+    icon: "mdi:chart-line"
+    accuracy_decimals: 1
+    retain: true
+    update_interval: never
+    lambda: |-
+      float p = id(p_sl).state;
+      if (isnan(p)) return NAN;
+
+      // 15 percenként frissül valójában (küldős ciklus)
+      // gyors EMA: kb. "rövid táv"
+      if (isnan(id(p_sl_ema))) id(p_sl_ema) = p;
+      id(p_sl_ema) = 0.25f * p + 0.75f * id(p_sl_ema);
+
+      // lassú EMA: kb. "hosszabb táv"
+      if (isnan(id(p_sl_slow))) id(p_sl_slow) = id(p_sl_ema);
+      id(p_sl_slow) = 0.05f * id(p_sl_ema) + 0.95f * id(p_sl_slow);
+
+      // különbség -> trend jelleg; skálázás 3 órára (heurisztika)
+      float dp = id(p_sl_ema) - id(p_sl_slow);
+      return dp * 6.0f;
+
+  - platform: template
+    name: "Last seen counter"
+    id: last_seen_counter
+    unit_of_measurement: "boot"
+    accuracy_decimals: 0
+    retain: true
+    update_interval: never
+    lambda: |-
+      return (float) id(boot_count);
+
+text_sensor:
+  - platform: mqtt_subscribe
+    name: "Weather Station MQTT status"
+    id: ws_status
+    topic: weather-station/status
+
+  - platform: template
+    name: "Időjárás jelleg (nyomás)"
+    id: wx_trend
+    icon: "mdi:weather-cloudy-clock"
+    update_interval: never
+    lambda: |-
+      float tr = id(p_trend_3h).state;
+      if (isnan(tr)) return {"n/a"};
+
+      if (tr > 3.0f) return {"Gyorsan emelkedik (javuló)"};
+      if (tr > 1.0f) return {"Emelkedik (javuló)"};
+      if (tr < -3.0f) return {"Gyorsan csökken (front/vihar esély)"};
+      if (tr < -1.0f) return {"Csökken (romló)"};
+      return {"Stabil"};
+
+  # Figyelmeztetés: nyomásesés + "nyirkos" levegő kombinációja
+  - platform: template
+    name: "Figyelmeztetés"
+    id: wx_alert
+    icon: "mdi:alert-outline"
+    update_interval: never
+    lambda: |-
+      float tr = id(p_trend_3h).state;   // hPa/3h jelleg
+      float t  = id(bme_t).state;
+      float dp = id(dewpoint).state;
+      float rh = id(bme_rh).state;
+
+      if (isnan(tr) || isnan(t) || isnan(dp) || isnan(rh)) return {"n/a"};
+
+      float spread = t - dp; // dewpoint depression
+
+      // Nedvességi jelző:
+      bool humid_air = (rh >= 85.0f) || (spread <= 2.0f);
+
+      // Erős romlás jelző:
+      bool fast_drop = (tr <= -3.0f);
+      bool drop      = (tr <= -1.5f);
+
+      if (fast_drop && humid_air) return {"Magas: gyors nyomásesés + nedves levegő (zápor/vihar esély)"};
+      if (drop && humid_air)      return {"Közepes: nyomásesés + nedves levegő (csapadék esély)"};
+      if (fast_drop)              return {"Figyeld: gyors nyomásesés (front közeleghet)"};
+      if (humid_air)              return {"Nyirkos: köd/pára esély (kis spread / magas RH)"};
+      return {"Nincs"};
+
+interval:
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            lambda: 'return id(boot_mod3) != 0;'
+          then:
+            # nem küldünk: gyors alvás
+            - delay: 4s
+            - if:
+                condition:
+                  lambda: 'return !id(ota_mode);'
+                then:
+                  - deep_sleep.enter: xiao_deep_sleep
+                else:
+                  - logger.log: "OTA mode active -> skipping deep sleep"
+                  - delay: 60s
+          else:
+            # küldős ciklus: mérés + számolt szenzorok frissítése
+            - component.update: bme280_comp
+            - delay: 1s
+            - component.update: p_sl
+            - component.update: dewpoint
+            - component.update: p_trend_3h
+            - component.update: wx_trend
+            - component.update: wx_alert
+            - component.update: batt_v
+            - delay: 2s
+            - component.update: batt_pct
+            - component.update: last_seen_counter
+            # hagyjunk időt MQTT publish-ra
+            - delay: 20s
+            - if:
+                condition:
+                  lambda: 'return !id(ota_mode);'
+                then:
+                  - deep_sleep.enter: xiao_deep_sleep
+                else:
+                  - logger.log: "OTA mode active -> skipping deep sleep"
+                  - delay: 60s
