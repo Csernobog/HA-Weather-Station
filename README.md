@@ -198,7 +198,7 @@ Heartbeat, increases by 1 in each deep-sleep cycle, and the HA side always incre
 ```
 ## MQTT Settings
 Empty birth and will messages are needed so that the values ​​on the HA side are preserved even if the device is in deep sleep (otherwise everything will be unavailable during deep sleep!!)
-'''
+```
 mqtt:
   broker: !secret mqtt_host
   username: !secret mqtt_user
@@ -224,7 +224,7 @@ mqtt:
         - lambda: |-
             id(ota_mode) = false;
         - logger.log: "OTA MODE: OFF (normal deep sleep)"
-'''
+```
 On the HA side, commands to turn OTA mode on and off: from MQTT broker the ON or OFF message sent to the weather-station/ota_mode topic in retain mode
 ![HA WS MQTT](/pictures/WS_MQTT.jpg)
 
