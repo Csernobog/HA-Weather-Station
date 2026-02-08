@@ -9,11 +9,11 @@ U need for this card:
  - card-mod / http://homeassistant.local:8123/hacs/repository/190927524
  - expander-card / http://homeassistant.local:8123/hacs/repository/677140532
  - button-card / http://homeassistant.local:8123/hacs/repository/146194325
- - 
- Card close:
+  
+ #Card close:
  ![HA WS card close](/pictures/ws_card_close.jpg)
 
- Card open:
+ #Card open:
  ![HA WS card close](/pictures/ws_card_open.jpg)
 
 
