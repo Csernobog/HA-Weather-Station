@@ -45,7 +45,7 @@ BMP280:
 ```
 
 
-Calculated entities:
+Calculated entities:</br >
 Sea level air pressure:
 m = local height value ( View with GPS )
 ```
@@ -68,6 +68,28 @@ m = local height value ( View with GPS )
         -5.257f
       );
       return p0;
+```
+
+Dew point:
+```
+- platform: template
+    name: "Harmatpont"
+    id: dewpoint
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer-alert"
+    accuracy_decimals: 1
+    retain: true
+    update_interval: never
+    lambda: |-
+      float t = id(bme_t).state;
+      float rh = id(bme_rh).state;
+      if (isnan(t) || isnan(rh) || rh <= 0.0f) return NAN;
+
+      // Magnus formula
+      const float a = 17.67f;
+      const float b = 243.5f;
+      float gamma = logf(rh / 100.0f) + (a * t) / (b + t);
+      return (b * gamma) / (a - gamma);
 ```
 
 
