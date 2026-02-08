@@ -225,7 +225,7 @@ mqtt:
             id(ota_mode) = false;
         - logger.log: "OTA MODE: OFF (normal deep sleep)"
 ```
-On the HA side, commands to turn OTA mode on and off: from MQTT broker the ON or OFF message sent to the weather-station/ota_mode topic in retain mode
+On the HA side, commands to turn OTA mode on and off: from MQTT broker the ON or OFF message sent to the weather-station/ota_mode topic in retain mode</br >
 ![HA WS MQTT](/pictures/WS_MQTT.jpg)
 
 # HA Card<br />
@@ -240,4 +240,4 @@ U need for this card:
  Card open:<br />
  ![HA WS card close](/pictures/ws_card_open.jpg)
 
-
+# Have fun :)!
