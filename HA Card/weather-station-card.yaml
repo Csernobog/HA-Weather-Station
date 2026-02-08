@@ -1,0 +1,125 @@
+type: custom:expander-card
+cards:
+  - type: entities
+    entities:
+      - entity: sensor.weather_station_last_seen_counter
+        name:
+          type: entity
+      - entity: sensor.weather_station_kulso_homerseklet
+        name: Külső hőmérséklet
+        secondary_info: none
+      - entity: sensor.weather_station_relativ_paratartalom
+        name: Páratartalom
+      - entity: sensor.weather_station_abszolut_paratartalom
+        name: Abszolut páratartalom
+      - entity: sensor.weather_station_harmatpont
+        name: Harmatpont
+      - entity: sensor.weather_station_legnyomas_allomasi
+        name: Légnyomás
+      - entity: sensor.weather_station_legnyomas_tengerszintre_korrigalt
+        name: Tengerszintre átszámított légnyomás
+      - entity: sensor.weather_station_nyomastrend_hpa_3h
+        name:
+          type: entity
+      - entity: sensor.weather_station_idojaras_jelleg_nyomas
+        name:
+          type: entity
+      - entity: sensor.weather_station_figyelmeztetes
+        name:
+          type: entity
+      - entity: sensor.weather_station_akkufeszultseg
+        name:
+          type: entity
+      - entity: sensor.weather_station_akkuszint
+        name:
+          type: entity
+        icon: mdi:battery
+    card_mod:
+      style: |
+        ha-card {
+          background:
+            linear-gradient(
+              rgba(0, 0, 0, 0.65),
+              rgba(0, 0, 0, 0.65)
+            ),
+            url('/local/Background/weather_station.jpg') center / cover no-repeat !important;
+        }
+title-card:
+  type: custom:button-card
+  name: |
+    [[[
+       return 'Helyi időjárás' ;  
+    ]]]   
+  icon: |
+    [[[
+      const s = states['weather.forecast_home']?.state;
+      const map = {
+        'clear-night': 'mdi:weather-night',
+        'cloudy': 'mdi:weather-cloudy',
+        'fog': 'mdi:weather-fog',
+        'hail': 'mdi:weather-hail',
+        'lightning': 'mdi:weather-lightning',
+        'lightning-rainy': 'mdi:weather-lightning-rainy',
+        'partlycloudy': 'mdi:weather-partly-cloudy',
+        'pouring': 'mdi:weather-pouring',
+        'rainy': 'mdi:weather-rainy',
+        'snowy': 'mdi:weather-snowy',
+        'snowy-rainy': 'mdi:weather-snowy-rainy',
+        'sunny': 'mdi:weather-sunny',
+        'windy': 'mdi:weather-windy',
+        'windy-variant': 'mdi:weather-windy-variant',
+        'exceptional': 'mdi:alert-circle-outline',
+      };
+      return map[s] || 'mdi:help-circle-outline';
+    ]]]
+  show_name: true
+  show_icon: true
+  styles:
+    card:
+      - border: none
+      - background: none
+      - box-shadow: none
+      - padding: 30px 0
+    grid:
+      - grid-template-areas: "\"i n\""
+      - grid-template-columns: min-content 1fr
+      - align-items: center
+      - column-gap: 12px
+    icon:
+      - width: 20px
+      - color: var(--primary-text-color)
+    name:
+      - font-size: 15px
+      - font-weight: 500
+      - justify-self: start
+    custom_fields:
+      secondary:
+        - position: absolute
+        - left: 0%
+        - top: 60%
+        - font-size: 10px
+  custom_fields:
+    secondary:
+      card:
+        type: custom:button-card
+        name: |
+          [[[
+            return 'Hőmérséklet: ' + states['sensor.weather_station_kulso_homerseklet'].state +'°C - Páratartalom: ' + states['sensor.weather_station_relativ_paratartalom'].state +' % - Légnyomás: '+states['sensor.weather_station_legnyomas_tengerszintre_korrigalt'].state + 'HPa ' +states['sensor.weather_station_idojaras_jelleg_nyomas'].state ;  
+          ]]]
+        styles:
+          card:
+            - border: none
+            - background: none
+            - box-shadow: none
+            - padding: 10px
+          name:
+            - font-size: 11px
+            - font-weight: 500
+            - justify-self: start
+  tap_action:
+    action: none
+expanded: false
+animation: false
+clear: true
+title-card-button-overlay: true
+
