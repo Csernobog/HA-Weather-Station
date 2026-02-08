@@ -26,10 +26,23 @@ BMP280:
  - Station air pressure value
  - Dew point
  - Battery voltage: </br >
-   To calculate the multiplier value, you need to measure the resistance between the ADC and the + or - point of the element.
-'''
-multiply: 1.7  # (8.7k+12,3k)/8,7k
-'''
+   To calculate the multiplier value, you need to measure the resistance between the ADC and the + or - point of the battery.
+```
+- platform: adc
+    pin: GPIO2
+    name: "Akkufeszültség"
+    id: batt_v
+    attenuation: 11db
+    update_interval: never # csak akkor frissiti, ha meghivjuk Update-el
+    retain: true
+    filters:
+      - multiply: 1.7  # (8.7k+12,3k)/8,7k
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 5
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+```
 
 
 
