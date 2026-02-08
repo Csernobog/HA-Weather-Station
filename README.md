@@ -12,6 +12,23 @@ Solar - Battery powered ESP32+BME280 weather station MQTT integrated HA.
  - 18650 Battery with case
 
 ![HA WS](/pictures/WS_circuit_image.png)
+# ESPHOME code
+
+Operating model: 
+ - 5-minute deep-sleep cycles
+ - measurement in every cycle
+ - sending measurement data to the HA every 3 cycles via MQTT protocol
+
+Base entities:
+BMP280:
+ - Outside temperature
+ - Absolute humidity
+ - Station air pressure value
+ - Dew point
+ - Battery voltage:
+'''
+multiply: 1.7  # (8.7k+12,3k)/8,7k
+'''
 
 
 
